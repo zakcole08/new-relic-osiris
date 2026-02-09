@@ -69,10 +69,10 @@ func LoadConfig() *Config {
 		switch key {
 		case "api_key":
 			cfg.APIKey = value
-			debugLog("Loaded API key (first 10 chars): " + value[:10])
+			debugLog("Loaded API key")
 		case "account_id":
 			cfg.AccountID = value
-			debugLog("Loaded account ID: " + value)
+			debugLog("Loaded account ID")
 		case "refresh_interval":
 			if interval, err := strconv.Atoi(value); err == nil {
 				cfg.RefreshInterval = interval

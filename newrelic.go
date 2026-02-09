@@ -91,7 +91,7 @@ func FetchEntities(config *Config) *EntityList {
 		return addTestEntities(list)
 	}
 
-	debugLog(fmt.Sprintf("Fetching entities with API key: %s (first 10 chars)", config.APIKey[:10]))
+	debugLog("Fetching entities from New Relic")
 
 	req.Header.Set("API-Key", config.APIKey)
 	req.Header.Set("Content-Type", "application/json")
@@ -113,7 +113,6 @@ func FetchEntities(config *Config) *EntityList {
 	}
 
 	debugLog(fmt.Sprintf("API Response Status: %d", resp.StatusCode))
-	debugLog(fmt.Sprintf("API Response Body: %s", string(body)))
 
 	// Try to parse response and check for errors
 	var nrResp map[string]interface{}
@@ -382,7 +381,7 @@ func fetchViolationsREST(config *Config, list *EntityList) {
 		return
 	}
 
-	debugLog(fmt.Sprintf("Violations REST response: %s", string(body)))
+	debugLog("Violations REST response received")
 
 	var respObj map[string]interface{}
 	if err := json.Unmarshal(body, &respObj); err != nil {
@@ -455,43 +454,43 @@ func addTestEntities(list *EntityList) *EntityList {
 	// Test entities for development/demo
 	list.Entities = []*Entity{
 		{
-			Name:         "web-01",
+			Name:         "server-1",
 			Type:         "HOST",
 			HasAlert:     false,
 			OS:           "Linux",
-			ConnectionInfo: "192.168.1.10",
+			ConnectionInfo: "10.0.1.1",
 		},
 		{
-			Name:           "api-02",
+			Name:           "server-2",
 			Type:           "HOST",
 			HasAlert:       true,
 			AlertType:      "CPU High",
 			AlertMessage:   "CPU > 85%",
 			OS:             "Linux",
-			ConnectionInfo: "192.168.1.11",
+			ConnectionInfo: "10.0.1.2",
 		},
 		{
-			Name:           "db-01",
+			Name:           "server-3",
 			Type:           "HOST",
 			HasAlert:       false,
 			OS:             "Linux",
-			ConnectionInfo: "192.168.1.12",
+			ConnectionInfo: "10.0.1.3",
 		},
 		{
-			Name:           "cache-01",
+			Name:           "server-4",
 			Type:           "HOST",
 			HasAlert:       true,
 			AlertType:      "Memory",
 			AlertMessage:   "Memory > 90%",
 			OS:             "Linux",
-			ConnectionInfo: "192.168.1.13",
+			ConnectionInfo: "10.0.1.4",
 		},
 		{
-			Name:           "monitor-01",
+			Name:           "server-5",
 			Type:           "HOST",
 			HasAlert:       false,
 			OS:             "Linux",
-			ConnectionInfo: "192.168.1.14",
+			ConnectionInfo: "10.0.1.5",
 		},
 	}
 	return list
