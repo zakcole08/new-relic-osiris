@@ -10,7 +10,12 @@ import (
 )
 
 func debugLog(msg string) {
-	logPath := filepath.Join(os.Getenv("HOME"), ".osiris", "debug.log")
+	var logPath string
+	if home, err := os.UserHomeDir(); err == nil {
+		logPath = filepath.Join(home, ".osiris", "debug.log")
+	} else {
+		logPath = ".osiris/debug.log"
+	}
 	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return
@@ -35,8 +40,14 @@ func LoadConfig() *Config {
 	
 	file, err := os.Open(configPath)
 	if err != nil {
-		debugLog("Config not found at: " + configPath)
-		return cfg
+		// Try with .txt extension (Windows compatibility)
+		configPathTxt := configPath + ".txt"
+		debugLog("Config not found at: " + configPath + ", trying: " + configPathTxt)
+		file, err = os.Open(configPathTxt)
+		if err != nil {
+			debugLog("Config not found at: " + configPathTxt)
+			return cfg
+		}
 	}
 	defer file.Close()
 
