@@ -26,6 +26,14 @@ type AppState struct {
 }
 
 func main() {
+    // Check for --debug flag
+    for _, arg := range os.Args[1:] {
+        if arg == "--debug" {
+            DebugEnabled = true
+            break
+        }
+    }
+
     config := LoadConfig()
     debugLog("=== OSIRIS STARTED ===")
     debugLog("API Key set: " + fmt.Sprintf("%v", config.APIKey != ""))

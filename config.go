@@ -9,7 +9,12 @@ import (
 	"strings"
 )
 
+var DebugEnabled bool = false
+
 func debugLog(msg string) {
+	if !DebugEnabled {
+		return
+	}
 	var logPath string
 	if home, err := os.UserHomeDir(); err == nil {
 		logPath = filepath.Join(home, ".osiris", "debug.log")
