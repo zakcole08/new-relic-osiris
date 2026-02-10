@@ -148,7 +148,10 @@ func main() {
                         debugLog("in suspend (SSH): preparing to exec")
                         fmt.Fprintf(os.Stderr, "\n[osiris] Launching SSH to %s\n", entity.Name)
                         fmt.Fprintf(os.Stderr, "[osiris] Type 'exit' or Ctrl+D to return to osiris\n\n")
-                        execCmd := exec.Command("ssh", "admin@"+entity.Name)
+                        fmt.Fprintf(os.Stderr, "Enter the ssh username: ")
+                        var ssh_username string
+                        fmt.Scanln(&ssh_username)
+                        execCmd := exec.Command("ssh", ssh_username + "@" +entity.Name)
                         execCmd.Stdin = os.Stdin
                         execCmd.Stdout = os.Stdout
                         execCmd.Stderr = os.Stderr
