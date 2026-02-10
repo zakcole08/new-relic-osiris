@@ -175,173 +175,20 @@ func fetchIncidents(config *Config, list *EntityList) {
 		}
 	}()
 
-	debugLog("fetchIncidents: starting probe")
-	// We'll send a generic query that may return incidents under several fields.
-	// If the schema differs, we parse the response generically to find incident objects
-	// and extract any GUIDs mentioned.
-	query := `{
-		actor {
-			# Try several possible incident-related root fields; server will ignore unknown ones
-			incidentCommandCenter { __typename }
-			incidentManagement { __typename }
-			incident { __typename }
-			incidentCommandCenterSummary: incidentCommandCenter { __typename }
-		}
-	}`
-
-	payload := NerdGraphQuery{Query: query}
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		debugLog("Error marshaling incidents request: " + err.Error())
-		return
+	debugLog("fetchIncidents: starting")
+	// Use REST alerts/violations API which is proven to work
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		fetchViolationsREST(config, list)
+	}()
+	select {
+	case <-done:
+		debugLog("fetchIncidents: REST completed")
+	case <-time.After(15 * time.Second):
+		debugLog("fetchIncidents: REST timed out")
 	}
-
-	req, err := http.NewRequest("POST", "https://api.newrelic.com/graphql", bytes.NewReader(payloadBytes))
-	if err != nil {
-		debugLog("Error creating incidents request: " + err.Error())
-		return
-	}
-
-	req.Header.Set("API-Key", config.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	// Use context with timeout for the request
-	ctx, cancel := context.WithTimeout(context.Background(), 12*time.Second)
-	defer cancel()
-	req = req.WithContext(ctx)
-
-	client := &http.Client{Timeout: 0}
-	resp, err := client.Do(req)
-	if err != nil {
-		debugLog("Error fetching incidents: " + err.Error())
-		return
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		debugLog("Error reading incidents response: " + err.Error())
-		return
-	}
-
-	debugLog(fmt.Sprintf("Incidents API response (probe): %s", string(body)))
-
-	// Attempt to parse any incidents/guid mentions in the returned JSON using a generic extractor
-	incidents := extractIncidentsGeneric(body)
-	if len(incidents) == 0 {
-		debugLog("No incidents parsed from generic probe response; attempting REST fallback")
-		// Try REST alerts/violations API fallback (non-blocking with timeout)
-		done := make(chan struct{})
-		go func() {
-			defer close(done)
-			fetchViolationsREST(config, list)
-		}()
-		select {
-		case <-done:
-			debugLog("fetchIncidents: REST fallback completed")
-		case <-time.After(15 * time.Second):
-			debugLog("fetchIncidents: REST fallback timed out")
-		}
-		return
-	}
-
-	// Match parsed incidents to entities
-	matched := 0
-	for _, inc := range incidents {
-		for _, guid := range inc.GUIDs {
-			for _, entity := range list.Entities {
-				if entity.GUID == guid {
-					entity.HasAlert = true
-					if inc.Title != "" {
-						entity.AlertType = inc.Title
-					}
-					entity.AlertMessage = inc.Description
-					debugLog(fmt.Sprintf("Matched generic incident to %s: %s", entity.Name, inc.Title))
-					matched++
-				}
-			}
-		}
-	}
-	debugLog(fmt.Sprintf("Matched %d incidents to entities (generic)", matched))
 	debugLog("fetchIncidents: completed")
-}
-
-// incidentGeneric holds parsed incident info from arbitrary GraphQL responses
-type incidentGeneric struct {
-	Title       string
-	Description string
-	GUIDs       []string
-}
-
-// extractIncidentsGeneric walks a JSON graph and pulls out objects that look like incidents
-// It returns a slice of incidentGeneric with associated GUIDs found nearby.
-func extractIncidentsGeneric(body []byte) []incidentGeneric {
-	var root interface{}
-	if err := json.Unmarshal(body, &root); err != nil {
-		debugLog("extractIncidentsGeneric: json unmarshal error: " + err.Error())
-		return nil
-	}
-
-	var found []incidentGeneric
-
-	var walk func(node interface{})
-	walk = func(node interface{}) {
-		switch v := node.(type) {
-		case map[string]interface{}:
-			// If this object looks like an incident (has "title" or "description"), try to extract GUIDs nearby
-			title := ""
-			desc := ""
-			if t, ok := v["title"].(string); ok {
-				title = t
-			}
-			if d, ok := v["description"].(string); ok {
-				desc = d
-			}
-
-			guids := make([]string, 0)
-			// Direct keys containing entity GUIDs
-			if g, ok := v["entityGuid"].(string); ok {
-				guids = append(guids, g)
-			}
-			if g, ok := v["guid"].(string); ok {
-				guids = append(guids, g)
-			}
-
-			// Look for arrays under several likely keys
-			for _, key := range []string{"affectedEntities", "impactedEntities", "entities", "impacted_entity_list", "affected_entity_list"} {
-				if arr, ok := v[key].([]interface{}); ok {
-					for _, item := range arr {
-						if imap, ok := item.(map[string]interface{}); ok {
-							if g, ok := imap["entityGuid"].(string); ok {
-								guids = append(guids, g)
-							}
-							if g, ok := imap["guid"].(string); ok {
-								guids = append(guids, g)
-							}
-						}
-					}
-				}
-			}
-
-			if title != "" || desc != "" {
-				if len(guids) > 0 {
-					found = append(found, incidentGeneric{Title: title, Description: desc, GUIDs: guids})
-				}
-			}
-
-			// Continue walking children
-			for _, child := range v {
-				walk(child)
-			}
-		case []interface{}:
-			for _, item := range v {
-				walk(item)
-			}
-		}
-	}
-
-	walk(root)
-	return found
 }
 
 // fetchViolationsREST calls New Relic classic Alerts Violations REST API as a fallback
