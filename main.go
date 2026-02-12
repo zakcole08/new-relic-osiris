@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -340,6 +341,13 @@ func refreshEntities(state *AppState, config *Config, list *tview.List, statusTe
 		debugLog(fmt.Sprintf("refreshEntities: launching async fetchIncidents for %d entities", len(newEntities)))
 		go func() {
 			fetchIncidents(config, &EntityList{Entities: newEntities})
+			// Sort so alerting entities are first
+			sort.SliceStable(newEntities, func(i, j int) bool {
+				if newEntities[i].HasAlert == newEntities[j].HasAlert {
+					return newEntities[i].Name < newEntities[j].Name
+				}
+				return newEntities[i].HasAlert && !newEntities[j].HasAlert
+			})
 			debugLog("refreshEntities: async fetchIncidents completed, queuing UI update")
 			app.QueueUpdateDraw(func() {
 				updateListView(list, state, statusText, detailsText, app)
